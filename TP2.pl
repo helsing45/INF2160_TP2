@@ -1,11 +1,12 @@
 :- use_module(library(lists)).
 :- ['donneesTp2.pl'].
-0
+
 /* 0) Le predicat listeFilms(L) lie L à la liste (comportant les identifiants) de tous les films. 
 Exemple: 
         ?- listeFilms(ListeDesFilms).
         ListeDesFilms = [sica, nuit, coupe, wind, avengers, iron, sherlock, wind2].
 */
+
 listeFilms(L) :- findall(X, film(X,_,_,_,_,_,_,_,_), L).
 
 /* 
@@ -46,7 +47,7 @@ filtreCritere(Critere,IdActeur) :- is_he_valid(Critere,IdActeur),!.
 
 who_is(_,[],[]).
 who_is(Criteres,[Acteur|Acteurs],[Acteur|Results]):- filtreCritere(Criteres,Acteur),who_is(Criteres,Acteurs,Results),!.
-who_is(Criteres,[A1|Acteurs],Results):-who_is(Criteres,Acteurs,Results),!.
+who_is(Criteres,[_|Acteurs],Results):-who_is(Criteres,Acteurs,Results),!.
 
 is_he_valid(Critere,IdActeur):-critere(Critere,acteur(_,_,_,_,IdActeur)).
 
@@ -82,31 +83,36 @@ faitPartie(_,[]).
 faitPartie(X,[X|_]) :- !, false.
 faitPartie(X, [_|XS]) :- !, faitPartie(X, XS).
 
-
-
-
 /* 
 6) 1pt. Le prédicat filmsAdmissibles(ActId,LFilms) unifie LIdFilms à la liste des films (identifiants) satisfaisant les restrictions de l'acteur ActId. 
 */
-
+filmsAdmissibles(ActId,LFilms) :- findall(IdFilm, call(ActId, film(IdFilm,_,_,_,_,_,_,_,_)) ,LFilmsTemp), sansDoublons(LFilmsTemp, LFilms).
+sansDoublons(L, R) :- list_to_set(L, R).
 
 /* 
 7a) 1pt. Le prédicat selectionActeursFilm(IdFilm,Lacteurs) unifie Lacteurs à la liste formée des identifiants d'acteurs pour lesquels le film de d'identifiant IdFilm satisfait les restrictions.
 préconditions: IdFilm doit être défini 
 */
-
+selectionActeursFilm(IdFilm,Lacteurs):- listeActeurs(L), include(estAdmissible(IdFilm),L, Lacteurs).
+estAdmissible(F,A) :- call(A, film(F,_,_,_,_,_,_,_,_)).
 
 /* 
 7b) 1pt. Le prédicat selectionNActeursFilm2ActeursFilm2(IdFilm,Lacteurs) unifie Lacteurs à la liste formée des identifiants d'acteurs pour lesquels le film de d'identifiant IdFilm satisfait les restrictions.
           Si le nombre total des acteurs qualifiés est inférieur au nombre d'acteurs du film, la liste retournée (Lacteurs) devra contenir l'atome pasAssezDacteur.
 préconditions: IdFilm doit être défini 
 */
+selectionNActeursFilm2(IdFilm,Lacteurs) :- selectionActeursFilm(IdFilm,LTemp), length(LTemp, NbAct), film(IdFilm,_,_,_,_,_,_,NbActRequis,_), NbAct >= NbActRequis, !,prendN(NbActRequis, LTemp, Lacteurs).
+selectionNActeursFilm2(_,[pasAssezDacteur]).
 
+prendN(N, _, XS) :- N =< 0, !, N =:= 0, XS = [].
+prendN(_, [], []).
+prendN(N, [X|XS], [X|YS]) :- M is N-1, prendN(M, XS, YS).
 
 /* 
 8) 1pt. Le prédicat acteurJoueDansFilm(Lacteurs, IdFilm) ajoute dans la base de faits tous les acteurs (identifiants) jouant dans le film de titre spécifié (IdFilm) 
 */
-
+acteurJoueDansFilm([],_).
+acteurJoueDansFilm([A|Lacteurs],IdFilm) :- assert(joueDans(A,IdFilm)), acteurJoueDansFilm(Lacteurs,IdFilm).
 
 /* 
 9a) 1pt. Le prédicat affectationDesRolesSansCriteres(IdFilm) a pour but de distribuer les rôles à une liste d'acteurs pouvant jouer dans le film identifié par IdFilm (puisque
@@ -122,7 +128,17 @@ Le prédicat échoue et ne modifie rien si une des conditions suivantes est vér
   4) si le budget du film est insuffisant.
 précondition: L'identifiant du film doit être défini.
 */
+affectationDesRolesSansCriteres(IdFilm) :- not(atom(IdFilm)), !, fail.
+affectationDesRolesSansCriteres(IdFilm) :- joueDans(_, IdFilm), !, fail.
+affectationDesRolesSansCriteres(IdFilm) :- validerFilm(IdFilm), !, fail.
+affectationDesRolesSansCriteres(IdFilm) :- selectionNActeursFilm2(IdFilm, L), not(L = pasAssezDacteur), affecterRole(IdFilm, L), !.
 
+validerFilm(IdFilm) :- film(IdFilm,_,_,R,P,_,_,Na,_), R = pasDeRealisateur, P = pasDeProducteur, listeActeurs(L), length(L, Ll), Na > Ll.
+
+affecterRole(_, La) :- La = pasAssezDacteur, !, fail.
+affecterRole(IdFilm, La) :- film(IdFilm,_,_,_,_,_,_,_,B), totalSalaireMin(La, Total), Total =< B, acteurJoueDansFilm(La, IdFilm), modifierBudgetFilm(IdFilm,Total).
+
+modifierBudgetFilm(IdFilm, Salaires) :- film(IdFilm,Titre,Type,Realisateur,Producteur,Cout,Duree,Nba,Budget), NBudget = Salaires, NCout = Budget - NBudget, retract(film(IdFilm,Titre,Type,Realisateur,Producteur,Cout,Duree,Nba,Budget)), assert(film(IdFilm,Titre,Type,Realisateur,Producteur,NCout,Duree,Nba,NBudget)).
 
 /*
 9b) 1pt. Le prédicat affectationDesRolesCriteres(IdFilm,Lcriteres,LChoisis) unifie LChoisis à la liste d'acteurs satisfaisant aux critères de sélection du film, Ce film doit bien entendu satisfaire aux restrictions de 
@@ -139,7 +155,11 @@ précondition: L'identifiant du film et la liste de critères doivent être déf
 Attention: Il est possible qu'il y ait moins de critère que d'acteurs admissibles. Dans ce cas, la liste des acteurs sélectionnés ne peut dépasser le nombre de critères dans Lcriteres.
            Le nombre maximum d'acteurs choisis est donc égal à la taille de la liste Lcriteres.
 */
-
+affectationDesRolesCriteres(IdFilm,_,_) :- not(atom(IdFilm)), !, fail.
+affectationDesRolesCriteres(_,LCriteres,_) :- not(is_list(LCriteres)), !, fail.
+affectationDesRolesCriteres(_,[],_) :- !, fail.
+affectationDesRolesCriteres(IdFilm,_,_) :- validerFilm(IdFilm), !, fail.
+affectationDesRolesCriteres(IdFilm,LCriteres,LChoisis) :- selectionNActeursFilm2(IdFilm, L), not(L = pasAssezDacteur), selectionActeursCriteresNouvelle(LCriteres, L,LChoisis), length(LChoisis, N), film(IdFilm,_,_,_,_,_,_,Nr,_), N = Nr.
 
 
 /*
@@ -160,7 +180,9 @@ Attention:
 1) Il est possible qu'il y ait moins de critère que d'acteurs admissibles. Dans ce cas, la liste des acteurs sélectionnés doit être complétée (si possible et à concurrence de nombre de rôles) selon le principe du prédicat affectationDesRolesSansCriteres(IdFilm) de la question 9a.
 2) Si la liste Lcriteres est vide, c'est aussi le principe de affectationDesRolesSansCriteres(IdFilm) de la question 9a qui s'applique.
 */
-
+affectationDesRoles(IdFilm, []) :- affectationDesRolesSansCriteres(IdFilm), !.
+affectationDesRoles(IdFilm, LCriteres) :- affectationDesRolesCriteres(IdFilm, LCriteres, LChoisis), affecterRole(IdFilm, LChoisis), !.
+affectationDesRoles(IdFilm, _) :- affectationDesRolesSansCriteres(IdFilm), !, fail.
 
 
 /* 11) 1,25 pts. Le prédicat produire(NomMaison,IdFilm) vérifie si la maison peut produire le film identifié. Il vérifie si le budget de la maison 
@@ -169,14 +191,25 @@ est supérieur au cout du film, si le réalisateur n'est pas pasDeRealisateur, e
  est égale à NomMaison. 
  Précondition: le nom de la maison et l'identifiant du film doivent être connus. Le prédicat doit échoué si la maison ne peut pas produire le film. 
 */
+produire(NomMaison,IdFilm):- film(IdFilm,Titre,Type,Realisateur,Producteur,Cout,Duree,NActeur,Budget),
+                                 Producteur == 'pasDeProducteur',
+                                 realisateur(Realisateur,_,_),
+                                 maison(NomMaison,BudgetMaison),
+                                 BudgetMaison >= Budget,!,
+                                 NouveauBudget is BudgetMaison-Cout,
+                                 retract(maison(NomMaison,_)),
+                                 assert(maison(NomMaison,NouveauBudget)),
+                                 retract(film(Id,Titre,Type,Realisateur,Producteur,Cout,Duree,NActeur,Budget)),
+                                 assert(film(Id,Titre,Type,Realisateur,NomMaison,Cout,Duree,NActeur,Budget)).
 
- 
 							 
 /* 12) 0.75pt. Le prédicat plusieursFilms(N,Lacteurs) unifie Acteurs à la liste des acteurs (comportant leurs NOMS), qui jouent dans au moins N films.
 N doit être lié à une valeur au moment de la requête de résolution du but 
 */
 
-
+nombreDeFilm(ActeurName,N):- acteur(ActeurName,_,_,_,ActeurId),findall(Y, joueDans(ActeurId,Y),L), length(L,N).
+plusieursFilms(_ , []).
+plusieursFilms(N,[Acteur | Acteurs]):- nombreDeFilm(Acteur,N) , plusieursFilms(N,Acteurs).
 
 /* 13) 1.25pt. Les films réalisés et produits doivent maintenant être distribués dans les cinémas. On vous demande définir le prédicat distribuerFilm(IdFilm,PrixEntree) qui envoie le film identifié par IdFilm à tous les cinémas en spécifiant le prix d'entrée suggéré. 
 Ce prédicat doit modifier la base de connaissances en ajoutant le triplet  (IdFilm,0,PrixEntree) dans le répertoire de chacun des cinémas déjà existants.
