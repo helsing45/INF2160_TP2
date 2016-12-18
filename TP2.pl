@@ -40,25 +40,15 @@ experience(IdAct,Annee,Ne) :- 	acteur(_,_,_,DateDebut,IdAct),
 3) 0.75pt. Le predicat filtreCritere unifie ActId à l'identifiant du premier acteur qui verifie tous les criteres de Lc. 
 precondition: Lc doit etre defini. */
 
-is_valid([],_).
-is_valid([C1 | Criteres],IdActeur):- is_he_valid(Critere,IdActeur), is_valid(Criteres, IdActeur),!.
-is_valid(Critere,IdActeur) :- is_he_valid(Critere,IdActeur),!.
+filtreCritere([],_).
+filtreCritere([C1 | Criteres],IdActeur):- is_he_valid(C1,IdActeur), filtreCritere(Criteres, IdActeur),!.
+filtreCritere(Critere,IdActeur) :- is_he_valid(Critere,IdActeur),!.
 
 who_is(_,[],[]).
-who_is(Criteres,[Acteur|Acteurs],[Acteur|Results]):- is_valid(Criteres,Acteur),who_is(Criteres,Acteurs,Results),!.
+who_is(Criteres,[Acteur|Acteurs],[Acteur|Results]):- filtreCritere(Criteres,Acteur),who_is(Criteres,Acteurs,Results),!.
 who_is(Criteres,[A1|Acteurs],Results):-who_is(Criteres,Acteurs,Results),!.
 
-is_he_valid(Critere,IdActeur):-critere(Critere,acteur(A,B,C,D,IdActeur)).
-
-
-/*DON'T FUCKING WORK FUCK YOU PROLOG !!!!*/
-
-filtreCritere(X,_):- var(X),!,fail.
-filtreCritere(Criteres,Results) :- listeActeurs(L),filtreCritere(Criteres,L,Results).
-filtreCritere(_,[],[]).
-filtreCritere([Criteres],[A1 | Acteurs],[A1|Results]):- is_valid(Criteres,A1).
-filtreCritere([Criteres],[A1 | Acteurs],Results):- not(is_valid(Criteres,A1)),filtreCritere(Criteres,Acteurs).
-
+is_he_valid(Critere,IdActeur):-critere(Critere,acteur(_,_,_,_,IdActeur)).
 
 /* 
 4) 0.75pt. Le predicat totalSalaireMin(LActeur,Total) calcule la somme des salaires minimuns exigés par les acteurs dont la liste (des identifiants) est spécifiée. 
