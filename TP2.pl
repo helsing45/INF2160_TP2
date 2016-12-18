@@ -70,11 +70,18 @@ le principe suivant (jusqu'à concurrence de N acteurs, N correspondant au nombr
 non encore sélectionné et qui satisfait le deuxième critère etc.	
 precondition: la liste de criteres (Lcriteres) et la liste des acteurs contenant leurs idenfiants (Lacteurs) doivent être définies. 
 */
-san(Criteres,_,_):-var(Criteres),!,fail.
-san(_,Acteurs,_):-var(Acteurs),!,fail.
-san([],_,_).
-san([Critere|Criteres],[Acteur|Acteurs],Results):- who_is(Critere,Acteurs,P),length(P,Size),Size > 0,append(Results,P,Nr),san(Criteres,Acteurs,Nr).
-san([Critere|Criteres],[Acteur|Acteurs],[_|Results]):-san(Criteres,Acteurs,Results).
+selectionActeursCriteresNouvelle([],_,_).
+selectionActeursCriteresNouvelle(_,[],_).
+selectionActeursCriteresNouvelle([C|Lcriteres], Lacteurs, LChoisis) :- selectionActeur(C, Lacteurs, X), faitPartie(X, L), append(L, X, LChoisis), selectionActeursCriteresNouvelle(Lcriteres,Lacteurs,L).
+
+selectionActeur(_,[],_).
+selectionActeur(X,[Y|YS], Y) :- filtreCritere([X], Y); selectionActeur(X, YS, Z), Z = Y.
+selectionActeur(X, [_|YS], Z) :- selectionActeur(X, YS, Z).
+
+faitPartie(_,[]).
+faitPartie(X,[X|_]) :- !, false.
+faitPartie(X, [_|XS]) :- !, faitPartie(X, XS).
+
 
 
 
